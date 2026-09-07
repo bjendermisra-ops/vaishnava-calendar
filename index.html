@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Vaishnava Calendar (ISKCON GCal Engine)</title>
+  
+  <!-- Astronomy Engine CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"></script>
+  <!-- Our Core Engine -->
+  <script src="./gcal-engine.js"></script>
+
+  <style>
+    :root {
+      --header-maroon: #8d1b1b;
+      --header-maroon-dark: #681010;
+      --primary-accent: #ff9800;
+      --bg-cream: #fbf9f5;
+      --card-bg: #ffffff;
+      --text-main: #1f1f1f;
+      --text-muted: #666666;
+      --border-color: #e5dfd5;
+      --ekadashi-red: #c62828;
+      --parana-green: #2e7d32;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: #ebe7df;
+      color: var(--text-main);
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 0;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 480px;
+      background: var(--card-bg);
+      min-height: 100vh;
+      box-shadow: 0 0 25px rgba(0,0,0,0.12);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* Fixed Top App Bar */
+    .top-header {
+      background: var(--header-maroon);
+      color: #ffffff;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    }
+
+    .header-title-box {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
+    .header-sub {
+      font-size: 11px;
+      opacity: 0.85;
+      margin-top: 2px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .icon-btn {
+      background: transparent;
+      border: none;
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      transition: background 0.2s;
+    }
+
+    .icon-btn:active {
+      background: rgba(255,255,255,0.2);
+    }
+
+    /* Context Ribbon */
+    .context-bar {
+      background: #fff8f0;
+      border-bottom: 1px solid #fae1c5;
+      padding: 8px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #6d4c41;
+    }
+
+    .location-tag {
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+
+    /* Navigation Tabs */
+    .nav-tabs {
+      display: flex;
+      background: #f7f4ee;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .nav-tab {
+      flex: 1;
+      padding: 12px 0;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .nav-tab.active {
+      color: var(--header-maroon);
+      border-bottom-color: var(--header-maroon);
+      background: #fff;
+    }
+
+    /* Panes */
+    .tab-content {
+      flex: 1;
+      overflow-y: auto;
+      display: none;
+      padding-bottom: 40px;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Day Banner */
+    .day-banner {
+      background: linear-gradient(135deg, #8d1b1b, #ad2b2b);
+      color: #fff;
+      padding: 16px 14px;
+      text-align: center;
+      box-shadow: inset 0 -2px 5px rgba(0,0,0,0.1);
+    }
+
+    .day-banner .date-str {
+      font-size: 19px;
+      font-weight: 700;
+    }
+
+    .day-banner .gaurabda-str {
+      font-size: 13px;
+      color: #ffeb3b;
+      margin-top: 4px;
+      font-weight: 600;
+    }
+
+    .day-banner .masa-str {
+      font-size: 12px;
+      opacity: 0.92;
+      margin-top: 2px;
+    }
+
+    /* Quick Date Switcher */
+    .quick-actions-bar {
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      overflow-x: auto;
+      background: #fff;
+      border-bottom: 1px solid var(--border-color);
+      white-space: nowrap;
+    }
+
+    .quick-chip {
+      padding: 6px 14px;
+      border-radius: 20px;
+      background: #f1ede5;
+      border: 1px solid #dfd8cb;
+      font-size: 12px;
+      font-weight: 600;
+      color: #4a3b32;
+      cursor: pointer;
+    }
+
+    .quick-chip.active {
+      background: var(--header-maroon);
+      color: #fff;
+      border-color: var(--header-maroon);
+    }
+
+    /* Vrata Box */
+    .vrata-card {
+      margin: 12px 14px;
+      border-radius: 8px;
+      padding: 14px 16px;
+      background: #fff5f5;
+      border-left: 5px solid var(--ekadashi-red);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+
+    .vrata-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--ekadashi-red);
+    }
+
+    .vrata-timing {
+      font-size: 13px;
+      margin-top: 5px;
+      font-weight: 600;
+      color: #2c2c2c;
+    }
+
+    .parana-badge {
+      display: inline-block;
+      margin-top: 9px;
+      padding: 6px 12px;
+      background: var(--parana-green);
+      color: #fff;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    /* Tables */
+    .panchang-table {
+      width: calc(100% - 28px);
+      margin: 10px 14px;
+      border-collapse: collapse;
+      background: #fff;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      overflow: hidden;
+      font-size: 13px;
+    }
+
+    .panchang-table th {
+      background: #f8f6f0;
+      padding: 9px 12px;
+      text-align: left;
+      font-weight: 700;
+      color: #5d4037;
+      border-bottom: 1px solid var(--border-color);
+      width: 40%;
+    }
+
+    .panchang-table td {
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border-color);
+      color: #212121;
+    }
+
+    .panchang-table tr:last-child td,
+    .panchang-table tr:last-child th {
+      border-bottom: none;
+    }
+
+    /* Astronomical Grid */
+    .astro-grid {
+      width: calc(100% - 28px);
+      margin: 12px 14px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .astro-grid-header {
+      display: grid;
+      grid-template-columns: 2fr 1.5fr 1.5fr;
+      background: #f3eee3;
+      padding: 8px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #4e342e;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .astro-row {
+      display: grid;
+      grid-template-columns: 2fr 1.5fr 1.5fr;
+      padding: 9px 12px;
+      font-size: 12px;
+      border-bottom: 1px solid #f2ede4;
+    }
+
+    .astro-row:last-child {
+      border-bottom: none;
+    }
+
+    .astro-row .label {
+      font-weight: 600;
+      color: #333;
+    }
+
+    .astro-row .val-earth {
+      font-weight: 700;
+      color: #b71c1c;
+    }
+
+    .astro-row .val-celestial {
+      color: #666;
+    }
+
+    /* Month Calendar Grid */
+    .month-header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background: #fff;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .month-nav-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--header-maroon);
+    }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      padding: 8px;
+      gap: 4px;
+      background: #faf7f2;
+    }
+
+    .cal-day-name {
+      text-align: center;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 6px 0;
+      color: var(--header-maroon);
+    }
+
+    .cal-cell {
+      min-height: 66px;
+      background: #ffffff;
+      border: 1px solid #ebe5db;
+      border-radius: 4px;
+      padding: 4px 2px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 11px;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .cal-cell.selected {
+      background: #ffe0b2;
+      border-color: #ff9800;
+    }
+
+    .cal-cell.other-month {
+      opacity: 0.35;
+      background: #f9f9f9;
+    }
+
+    .cal-cell .day-num {
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+
+    .badge-icon {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      margin-top: 2px;
+    }
+
+    .badge-ekadashi {
+      background: #ffebee;
+      color: #d32f2f;
+      border: 1.5px solid #d32f2f;
+    }
+
+    .badge-festival {
+      background: #e8f5e9;
+      color: #2e7d32;
+      border: 1.5px solid #2e7d32;
+    }
+
+    .badge-purnima {
+      background: #fffde7;
+      color: #f57f17;
+      border: 1.5px solid #fbc02d;
+    }
+
+    .badge-amavasya {
+      background: #eeeeee;
+      color: #333333;
+      border: 1.5px solid #616161;
+    }
+
+    /* Modals */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 16px;
+    }
+
+    .modal-box {
+      background: #fff;
+      width: 100%;
+      max-width: 380px;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.25);
+    }
+
+    .modal-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--header-maroon);
+      margin-bottom: 14px;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: #444;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+
+    .btn-row {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-primary { background: var(--header-maroon); color: #fff; }
+    .btn-secondary { background: #e0e0e0; color: #333; }
+    .btn-gps { background: #2e7d32; color: #fff; margin-bottom: 12px; width: 100%; }
+
+    /* Festival list */
+    .fest-list {
+      margin: 12px 14px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    .fest-item {
+      padding: 10px 14px;
+      border-bottom: 1px solid #f2eee8;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+    }
+
+    .fest-item:last-child { border-bottom: none; }
+
+    .fest-date-badge {
+      background: #fbf5ed;
+      border: 1px solid #eddcc6;
+      border-radius: 6px;
+      text-align: center;
+      padding: 4px 8px;
+      min-width: 44px;
+    }
+
+    .fest-date-badge .f-day {
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--header-maroon);
+    }
+
+    .fest-date-badge .f-month {
+      font-size: 9px;
+      text-transform: uppercase;
+      color: #795548;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+  <!-- Top Header -->
+  <header class="top-header">
+    <div class="header-title-box">
+      <div class="header-title">Vaishnava Calendar</div>
+      <div class="header-sub">ISKCON GCal Panjika Engine</div>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn" onclick="openLocationModal()" title="Location">📍</button>
+      <button class="icon-btn" onclick="exportICalendar()" title="Export ICS">📅</button>
+      <button class="icon-btn" onclick="openSettingsModal()" title="Settings">⚙️</button>
+    </div>
+  </header>
+
+  <!-- Context Ribbon -->
+  <div class="context-bar">
+    <div class="location-tag" id="locDisplayTag" onclick="openLocationModal()">
+      <span>📍 Pune, India (UTC+5.5)</span>
+    </div>
+    <div id="horizonDisplayTag" style="font-weight: 600; color: #b71c1c;">
+      Horizon: Earth-sky (Visible)
+    </div>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <nav class="nav-tabs">
+    <div class="nav-tab active" id="tabBtnDay" onclick="switchTab('day')">DAY VIEW</div>
+    <div class="nav-tab" id="tabBtnMonth" onclick="switchTab('month')">MONTH VIEW</div>
+    <div class="nav-tab" id="tabBtnFestivals" onclick="switchTab('festivals')">EVENTS</div>
+  </nav>
+
+  <!-- DAY VIEW -->
+  <div class="tab-content active" id="paneDay">
+    <div class="day-banner">
+      <div class="date-str" id="bannerDateStr">--</div>
+      <div class="gaurabda-str" id="bannerGaurabdaStr">--</div>
+      <div class="masa-str" id="bannerPakshaStr">--</div>
+    </div>
+
+    <!-- Quick Switcher -->
+    <div class="quick-actions-bar">
+      <button class="quick-chip" onclick="shiftDay(-1)">◀ Prev Day</button>
+      <button class="quick-chip active" onclick="goToToday()">Today</button>
+      <input type="date" id="datePickerDirect" onchange="onDirectDatePicked(this.value)" style="border: 1px solid #ccc; border-radius: 14px; padding: 5px 8px; font-size: 11px;" />
+      <button class="quick-chip" onclick="shiftDay(1)">Next Day ▶</button>
+    </div>
+
+    <!-- Vrata Box -->
+    <div class="vrata-card" id="vrataAlertCard" style="display: none;">
+      <div class="vrata-title" id="vrataTitleText"></div>
+      <div class="vrata-timing" id="vrataTimingText"></div>
+      <div class="parana-badge" id="vrataBadgeText"></div>
+    </div>
+
+    <!-- Main Panchang Table -->
+    <table class="panchang-table">
+      <tbody>
+        <tr>
+          <th>Paksha</th>
+          <td id="tdPaksha">--</td>
+        </tr>
+        <tr>
+          <th>Tithi</th>
+          <td id="tdTithi">--</td>
+        </tr>
+        <tr>
+          <th>Nakshatra</th>
+          <td id="tdNakshatra">--</td>
+        </tr>
+        <tr>
+          <th>Yoga</th>
+          <td id="tdYoga">--</td>
+        </tr>
+        <tr>
+          <th>Karana</th>
+          <td id="tdKarana">--</td>
+        </tr>
+        <tr>
+          <th>Vaara</th>
+          <td id="tdVaara">--</td>
+        </tr>
+        <tr>
+          <th>Year: Gaurabda</th>
+          <td id="tdGaurabda">--</td>
+        </tr>
+        <tr>
+          <th>Year: Gregorian</th>
+          <td id="tdGregorian">--</td>
+        </tr>
+        <tr>
+          <th>Month: Gaudiya Vaishnava</th>
+          <td id="tdVaishnavaMasa">--</td>
+        </tr>
+        <tr>
+          <th>Month: Purnimanta</th>
+          <td id="tdPurnimanta">--</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Astronomical Times Grid -->
+    <div class="astro-grid">
+      <div class="astro-grid-header">
+        <div>Astronomical Event</div>
+        <div>Earth-Sky</div>
+        <div>Celestial</div>
+      </div>
+      <div class="astro-row">
+        <div class="label">Brahma Muhurta</div>
+        <div class="val-earth" id="valBrahmaEarth">--:--</div>
+        <div class="val-celestial" id="valBrahmaCelest">--:--</div>
+      </div>
+      <div class="astro-row">
+        <div class="label">Sunrise</div>
+        <div class="val-earth" id="valSunriseEarth">--:--</div>
+        <div class="val-celestial" id="valSunriseCelest">--:--</div>
+      </div>
+      <div class="astro-row">
+        <div class="label">Noon</div>
+        <div class="val-earth" id="valNoonEarth">--:--</div>
+        <div class="val-celestial" id="valNoonCelest">--:--</div>
+      </div>
+      <div class="astro-row">
+        <div class="label">Sunset</div>
+        <div class="val-earth" id="valSunsetEarth">--:--</div>
+        <div class="val-celestial" id="valSunsetCelest">--:--</div>
+      </div>
+      <div class="astro-row">
+        <div class="label">Moonrise</div>
+        <div class="val-earth" id="valMoonrise">--:--</div>
+        <div class="val-celestial">-</div>
+      </div>
+      <div class="astro-row">
+        <div class="label">Moonset</div>
+        <div class="val-earth" id="valMoonset">--:--</div>
+        <div class="val-celestial">-</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MONTH VIEW -->
+  <div class="tab-content" id="paneMonth">
+    <div class="month-header-bar">
+      <button class="icon-btn" style="color: var(--header-maroon);" onclick="shiftMonth(-1)">◀</button>
+      <div class="month-nav-title" id="monthViewTitle">--</div>
+      <button class="icon-btn" style="color: var(--header-maroon);" onclick="shiftMonth(1)">▶</button>
+    </div>
+    <div class="calendar-grid" id="calendarGridBox"></div>
+  </div>
+
+  <!-- FESTIVALS VIEW -->
+  <div class="tab-content" id="paneFestivals">
+    <div style="padding: 12px 16px; font-weight: 700; color: #5d4037; font-size: 14px;">
+      Vaishnava Events for <span id="festMonthHeading">--</span>:
+    </div>
+    <div class="fest-list" id="festivalsContainer"></div>
+  </div>
+</div>
+
+<!-- Location Modal -->
+<div class="modal-overlay" id="modalLocation">
+  <div class="modal-box">
+    <div class="modal-title">Location Settings</div>
+    <button class="btn btn-gps" onclick="detectDeviceGPS()">📍 Use Current Device GPS</button>
+    <div class="form-group">
+      <label>Location Presets:</label>
+      <select class="form-control" id="selectPresetCity" onchange="onSelectCityPreset()">
+        <option value="pune" selected>Pune, India (UTC+5.5)</option>
+        <option value="mayapur">Mayapur (Navadvipa), India (UTC+5.5)</option>
+        <option value="vrindavan">Vrindavan / Mathura, India (UTC+5.5)</option>
+        <option value="mumbai">Mumbai, India (UTC+5.5)</option>
+        <option value="delhi">New Delhi, India (UTC+5.5)</option>
+        <option value="london">London, UK (UTC+0)</option>
+        <option value="newyork">New York, USA (UTC-5)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Latitude (° N/S):</label>
+      <input type="number" step="0.0001" class="form-control" id="inputLat" value="18.5204" />
+    </div>
+    <div class="form-group">
+      <label>Longitude (° E/W):</label>
+      <input type="number" step="0.0001" class="form-control" id="inputLon" value="73.8567" />
+    </div>
+    <div class="form-group">
+      <label>Elevation (meters):</label>
+      <input type="number" class="form-control" id="inputElevation" value="560" />
+    </div>
+    <div class="form-group">
+      <label>Timezone Offset (Hours):</label>
+      <input type="number" step="0.5" class="form-control" id="inputTz" value="5.5" />
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="closeModal('modalLocation')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCustomLocation()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="modalSettings">
+  <div class="modal-box">
+    <div class="modal-title">Calculation Standard</div>
+    <div class="form-group">
+      <label>Standard Algorithm:</label>
+      <select class="form-control" id="selectStandard">
+        <option value="current">Current Location (GCal 2011)</option>
+        <option value="mayapur">Shri Mayapur Centric</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Horizon Standard:</label>
+      <select class="form-control" id="selectHorizon">
+        <option value="earth-sky">Earth-sky (Visible)</option>
+        <option value="celestial">Celestial (0°)</option>
+      </select>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="closeModal('modalSettings')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSettings()">Apply</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/**
+ * Universal Frontend Controller
+ */
+const appState = {
+  currentDate: new Date(),
+  viewMonth: new Date().getMonth(),
+  viewYear: new Date().getFullYear(),
+  location: {
+    name: "Pune",
+    lat: 18.5204,
+    lon: 73.8567,
+    elevation: 560,
+    tz: 5.5
+  },
+  settings: {
+    standard: "current",
+    horizon: "earth-sky"
+  }
+};
+
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
+
+function renderDayView() {
+  const panchang = GCalEngine.calculateDay(appState.currentDate, appState.location);
+  const d = panchang.date;
+
+  // Banner
+  document.getElementById("bannerDateStr").innerText = 
+    `${String(d.getDate()).padStart(2,'0')} ${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}, ${panchang.dayNameEn}`;
+  document.getElementById("bannerGaurabdaStr").innerText = 
+    `${panchang.gaurabda} Gaurabda, ${panchang.masaName} masa`;
+  document.getElementById("bannerPakshaStr").innerText = 
+    `${panchang.paksha} paksha, ${panchang.tithiName} (Purnimanta: ${panchang.purnimantaMasa})`;
+
+  // Vrata Card
+  const alertCard = document.getElementById("vrataAlertCard");
+  const titleText = document.getElementById("vrataTitleText");
+  const timingText = document.getElementById("vrataTimingText");
+  const badgeText = document.getElementById("vrataBadgeText");
+
+  if (panchang.isEkadashi) {
+    alertCard.style.display = "block";
+    titleText.innerText = `Ekadashi Vrata: ${panchang.ekadashiName.toUpperCase()}`;
+    timingText.innerText = `Fasting begins at ${panchang.astro.riseEarth}`;
+    badgeText.innerText = `Parana tomorrow: ${panchang.paranaStart} - ${panchang.paranaEnd}`;
+  } else if (panchang.specialEventName) {
+    alertCard.style.display = "block";
+    titleText.innerText = panchang.specialEventName;
+    timingText.innerText = `Ekadashi Parana: ${panchang.paranaStart} - ${panchang.paranaEnd}`;
+    badgeText.innerText = `Fasting till noon`;
+  } else if (panchang.isParana) {
+    alertCard.style.display = "block";
+    titleText.innerText = `Ekadashi Vrata: ${panchang.ekadashiName.toUpperCase()}`;
+    timingText.innerText = `Break the fasting between ${panchang.paranaStart} and ${panchang.paranaEnd}`;
+    badgeText.innerText = `Parana: ${panchang.paranaStart} - ${panchang.paranaEnd}`;
+  } else {
+    alertCard.style.display = "none";
+  }
+
+  // Table
+  document.getElementById("tdPaksha").innerText = panchang.paksha;
+  document.getElementById("tdTithi").innerText = `${panchang.tithiName} (up to ${panchang.tithiEnd})`;
+  document.getElementById("tdNakshatra").innerText = panchang.nakshatra;
+  document.getElementById("tdYoga").innerText = panchang.yoga;
+  document.getElementById("tdKarana").innerText = panchang.karana;
+  document.getElementById("tdVaara").innerText = panchang.dayNameVaishnava;
+  document.getElementById("tdGaurabda").innerText = `${panchang.gaurabda}`;
+  document.getElementById("tdGregorian").innerText = `${d.getFullYear()}`;
+  document.getElementById("tdVaishnavaMasa").innerText = panchang.masaName;
+  document.getElementById("tdPurnimanta").innerText = panchang.purnimantaMasa;
+
+  // Astro Grid
+  document.getElementById("valBrahmaEarth").innerText = panchang.astro.brahmaEarth;
+  document.getElementById("valBrahmaCelest").innerText = panchang.astro.brahmaCel;
+  document.getElementById("valSunriseEarth").innerText = panchang.astro.riseEarth;
+  document.getElementById("valSunriseCelest").innerText = panchang.astro.riseCel;
+  document.getElementById("valNoonEarth").innerText = panchang.astro.noon;
+  document.getElementById("valNoonCelest").innerText = panchang.astro.noon;
+  document.getElementById("valSunsetEarth").innerText = panchang.astro.setEarth;
+  document.getElementById("valSunsetCelest").innerText = panchang.astro.setCel;
+  document.getElementById("valMoonrise").innerText = panchang.astro.moonrise;
+  document.getElementById("valMoonset").innerText = panchang.astro.moonset;
+}
+
+function renderMonthView() {
+  const container = document.getElementById("calendarGridBox");
+  container.innerHTML = "";
+
+  const year = appState.viewYear;
+  const month = appState.viewMonth;
+
+  document.getElementById("monthViewTitle").innerText = `${MONTH_NAMES[month].toUpperCase()} ${year}`;
+
+  const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  weekdays.forEach(w => {
+    const h = document.createElement("div");
+    h.className = "cal-day-name";
+    h.innerText = w;
+    container.appendChild(h);
+  });
+
+  const firstDay = new Date(year, month, 1);
+  const totalDays = new Date(year, month + 1, 0).getDate();
+  const startDayIndex = (firstDay.getDay() + 6) % 7;
+
+  const prevTotal = new Date(year, month, 0).getDate();
+  for (let i = startDayIndex - 1; i >= 0; i--) {
+    const cell = document.createElement("div");
+    cell.className = "cal-cell other-month";
+    cell.innerHTML = `<span class="day-num">${prevTotal - i}</span>`;
+    container.appendChild(cell);
+  }
+
+  for (let d = 1; d <= totalDays; d++) {
+    const iterDate = new Date(year, month, d);
+    const p = GCalEngine.calculateDay(iterDate, appState.location);
+
+    const cell = document.createElement("div");
+    cell.className = "cal-cell";
+    if (d === appState.currentDate.getDate() && month === appState.currentDate.getMonth() && year === appState.currentDate.getFullYear()) {
+      cell.classList.add("selected");
+    }
+
+    let badge = "";
+    if (p.isEkadashi) {
+      badge = `<div class="badge-icon badge-ekadashi" title="Ekadashi: ${p.ekadashiName}">🪷</div>`;
+    } else if (p.specialEventName) {
+      badge = `<div class="badge-icon badge-festival" title="${p.specialEventName}">✨</div>`;
+    } else if (p.tithiName === "Purnima") {
+      badge = `<div class="badge-icon badge-purnima" title="Purnima">🌕</div>`;
+    } else if (p.tithiName === "Amavasya") {
+      badge = `<div class="badge-icon badge-amavasya" title="Amavasya">🌑</div>`;
+    } else if (p.tithiName === "Ashtami" && p.paksha === "Krishna" && p.masaName === "Hrishikesha") {
+      badge = `<div class="badge-icon badge-festival" title="Sri Krishna Janmashtami">🕉️</div>`;
+    } else if (p.tithiName === "Ashtami" && p.paksha === "Gaura" && p.masaName === "Hrishikesha") {
+      badge = `<div class="badge-icon badge-festival" title="Radhashtami">🌸</div>`;
+    }
+
+    cell.innerHTML = `<span class="day-num">${d}</span>${badge}`;
+    cell.onclick = () => {
+      appState.currentDate = new Date(year, month, d);
+      switchTab('day');
+    };
+    container.appendChild(cell);
+  }
+}
+
+function renderFestivalsList() {
+  const container = document.getElementById("festivalsContainer");
+  container.innerHTML = "";
+  document.getElementById("festMonthHeading").innerText = `${MONTH_NAMES[appState.viewMonth]} ${appState.viewYear}`;
+
+  const totalDays = new Date(appState.viewYear, appState.viewMonth + 1, 0).getDate();
+
+  for (let d = 1; d <= totalDays; d++) {
+    const iterDate = new Date(appState.viewYear, appState.viewMonth, d);
+    const p = GCalEngine.calculateDay(iterDate, appState.location);
+
+    let eventName = "";
+    let fastInfo = "";
+
+    if (p.isEkadashi) {
+      eventName = `${p.ekadashiName} Ekadashi Fasting`;
+      fastInfo = `Fasting begins at sunrise ${p.astro.riseEarth}`;
+    } else if (p.specialEventName) {
+      eventName = p.specialEventName;
+      fastInfo = "Fasting till noon";
+    } else if (p.isParana) {
+      eventName = `${p.ekadashiName} Ekadashi Parana`;
+      fastInfo = `Break fast between ${p.paranaStart} and ${p.paranaEnd}`;
+    } else if (p.tithiName === "Ashtami" && p.paksha === "Krishna" && p.masaName === "Hrishikesha") {
+      eventName = "Sri Krishna Janmashtami: Appearance of Lord Sri Krishna";
+      fastInfo = "Fasting till midnight";
+    } else if (p.tithiName === "Navami" && p.paksha === "Krishna" && p.masaName === "Hrishikesha") {
+      eventName = "Srila Prabhupada Appearance Day (Nandotsava)";
+      fastInfo = "Fasting till noon";
+    } else if (p.tithiName === "Ashtami" && p.paksha === "Gaura" && p.masaName === "Hrishikesha") {
+      eventName = "Radhashtami: Appearance of Srimati Radharani";
+      fastInfo = "Fasting till noon";
+    } else if (p.tithiName === "Purnima") {
+      eventName = `Purnima (Full Moon) - ${p.masaName} Masa`;
+    } else if (p.tithiName === "Amavasya") {
+      eventName = `Amavasya (New Moon) - ${p.masaName} Masa`;
+    }
+
+    if (eventName) {
+      const item = document.createElement("div");
+      item.className = "fest-item";
+      item.innerHTML = `
+        <div class="fest-date-badge">
+          <div class="f-day">${d}</div>
+          <div class="f-month">${MONTH_NAMES[appState.viewMonth].slice(0,3)}</div>
+        </div>
+        <div>
+          <div style="font-weight: 700;">${eventName}</div>
+          ${fastInfo ? `<div style="font-size: 11px; color: #c62828; font-weight: 600;">${fastInfo}</div>` : ''}
+        </div>
+      `;
+      container.appendChild(item);
+    }
+  }
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+  if (tab === 'day') {
+    document.getElementById('tabBtnDay').classList.add('active');
+    document.getElementById('paneDay').classList.add('active');
+    renderDayView();
+  } else if (tab === 'month') {
+    document.getElementById('tabBtnMonth').classList.add('active');
+    document.getElementById('paneMonth').classList.add('active');
+    renderMonthView();
+  } else if (tab === 'festivals') {
+    document.getElementById('tabBtnFestivals').classList.add('active');
+    document.getElementById('paneFestivals').classList.add('active');
+    renderFestivalsList();
+  }
+}
+
+function shiftDay(offset) {
+  const d = new Date(appState.currentDate);
+  d.setDate(d.getDate() + offset);
+  appState.currentDate = d;
+  renderDayView();
+}
+
+function shiftMonth(offset) {
+  appState.viewMonth += offset;
+  if (appState.viewMonth < 0) { appState.viewMonth = 11; appState.viewYear--; }
+  if (appState.viewMonth > 11) { appState.viewMonth = 0; appState.viewYear++; }
+  renderMonthView();
+  renderFestivalsList();
+}
+
+function goToToday() {
+  appState.currentDate = new Date();
+  appState.viewMonth = appState.currentDate.getMonth();
+  appState.viewYear = appState.currentDate.getFullYear();
+  renderDayView();
+  renderMonthView();
+  renderFestivalsList();
+}
+
+function onDirectDatePicked(val) {
+  if (!val) return;
+  const parts = val.split('-');
+  appState.currentDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+  appState.viewMonth = appState.currentDate.getMonth();
+  appState.viewYear = appState.currentDate.getFullYear();
+  renderDayView();
+  renderMonthView();
+  renderFestivalsList();
+}
+
+function openLocationModal() { document.getElementById('modalLocation').style.display = 'flex'; }
+function openSettingsModal() { document.getElementById('modalSettings').style.display = 'flex'; }
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+function onSelectCityPreset() {
+  const sel = document.getElementById('selectPresetCity').value;
+  const presets = {
+    pune: { name: "Pune", lat: 18.5204, lon: 73.8567, elevation: 560, tz: 5.5 },
+    mayapur: { name: "Mayapur", lat: 23.4233, lon: 88.3934, elevation: 14, tz: 5.5 },
+    vrindavan: { name: "Vrindavan", lat: 27.5806, lon: 77.7006, elevation: 170, tz: 5.5 },
+    mumbai: { name: "Mumbai", lat: 19.0760, lon: 72.8777, elevation: 14, tz: 5.5 },
+    delhi: { name: "New Delhi", lat: 28.6139, lon: 77.2090, elevation: 216, tz: 5.5 },
+    london: { name: "London", lat: 51.5074, lon: -0.1278, elevation: 25, tz: 0.0 },
+    newyork: { name: "New York", lat: 40.7128, lon: -74.0060, elevation: 10, tz: -5.0 }
+  };
+  const p = presets[sel];
+  if (p) {
+    document.getElementById('inputLat').value = p.lat;
+    document.getElementById('inputLon').value = p.lon;
+    document.getElementById('inputElevation').value = p.elevation;
+    document.getElementById('inputTz').value = p.tz;
+  }
+}
+
+function saveCustomLocation() {
+  appState.location.lat = parseFloat(document.getElementById('inputLat').value);
+  appState.location.lon = parseFloat(document.getElementById('inputLon').value);
+  appState.location.elevation = parseFloat(document.getElementById('inputElevation').value);
+  appState.location.tz = parseFloat(document.getElementById('inputTz').value);
+
+  const selCity = document.getElementById('selectPresetCity');
+  appState.location.name = selCity.options[selCity.selectedIndex].text.split(',')[0];
+
+  document.getElementById('locDisplayTag').innerHTML = 
+    `<span>📍 ${appState.location.name} (UTC+${appState.location.tz})</span>`;
+
+  closeModal('modalLocation');
+  renderDayView();
+  renderMonthView();
+  renderFestivalsList();
+}
+
+function detectDeviceGPS() {
+  if (!navigator.geolocation) {
+    alert("Geolocation is not supported by your browser.");
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      document.getElementById('inputLat').value = pos.coords.latitude.toFixed(4);
+      document.getElementById('inputLon').value = pos.coords.longitude.toFixed(4);
+      document.getElementById('inputElevation').value = pos.coords.altitude ? Math.round(pos.coords.altitude) : 100;
+      document.getElementById('inputTz').value = -(new Date().getTimezoneOffset() / 60);
+      saveCustomLocation();
+    },
+    err => alert("GPS Permission: " + err.message)
+  );
+}
+
+function saveSettings() {
+  appState.settings.standard = document.getElementById('selectStandard').value;
+  appState.settings.horizon = document.getElementById('selectHorizon').value;
+  document.getElementById('horizonDisplayTag').innerText = 
+    `Horizon: ${appState.settings.horizon === 'earth-sky' ? 'Earth-sky (Visible)' : 'Celestial (0°)'}`;
+  closeModal('modalSettings');
+  renderDayView();
+}
+
+function exportICalendar() {
+  const panchang = GCalEngine.calculateDay(appState.currentDate, appState.location);
+  const d = panchang.date;
+  const dStr = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  
+  const ics = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Vaishnava Calendar//ISKCON GCal Engine//EN",
+    "BEGIN:VEVENT",
+    `SUMMARY:${panchang.ekadashiName} Ekadashi [${panchang.paranaStart} - ${panchang.paranaEnd}]`,
+    `DESCRIPTION:Panchang details for ${appState.location.name}. Tithi: ${panchang.tithiName}`,
+    `DTSTART:${dStr}T062600`,
+    `DTEND:${dStr}T102300`,
+    "END:VEVENT",
+    "END:VCALENDAR"
+  ].join("\r\n");
+
+  const blob = new Blob([ics], { type: "text/calendar" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `Vaishnava_Calendar_${dStr}.ics`;
+  a.click();
+}
+
+// Initial Bootstrapping (Sets Pune default 08 Sep 2026 for testing)
+window.addEventListener('DOMContentLoaded', () => {
+  appState.currentDate = new Date(2026, 8, 8);
+  appState.viewMonth = 8;
+  appState.viewYear = 2026;
+  renderDayView();
+  renderMonthView();
+  renderFestivalsList();
+});
+</script>
+</body>
+</html>
